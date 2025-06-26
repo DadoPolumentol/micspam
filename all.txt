@@ -1,0 +1,2 @@
+audio location:
+%AppData%\..\Local\Packages\TheDebianProject.DebianGNULinux_76v4gfsz19hv4\LocalState\rootfs\home\david\.local\share\shellpad\sounds
