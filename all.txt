@@ -1,2 +1,23 @@
 audio location:
 %AppData%\..\Local\Packages\TheDebianProject.DebianGNULinux_76v4gfsz19hv4\LocalState\rootfs\home\david\.local\share\shellpad\sounds
+
+load audio
+pygame.mixer.music.load("path_to_file.mp3")
+
+play audio
+pygame.mixer.music.play()
+ex. (loops=x)
+
+stop audio
+pygame.mixer.music.stop()
+
+pause audio
+pygame.mixer.music.pause()
+
+unpause audio
+pygame.mixer.music.unpause()
+
+volume
+pygame.mixer.music.set_volume(0.8)
+1=100%
+
