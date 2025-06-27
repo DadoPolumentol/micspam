@@ -1,3 +1,4 @@
+import re
 import os
 import pygame
 pygame.mixer.init()
@@ -6,17 +7,26 @@ high_power_mode=bool(None)
 audio_num=None
 
 files=os.listdir("./audio")
-number_list=[None]
-for f in files:
-    x=0
-    for a in f:
-        is_digit=0
-        print(f[x])
-        is_digit=f[x].isdigit()
-        if is_digit != True:
-            break
-        number_list.append(x)
-        x+=1
+number_list=[]
 
-for list in number_list:
-    print(list)
+for f in files:
+    match = re.match(r"(\d+)", f)
+    if match:
+        number_list.append(int(match.group(1)))
+print(number_list)
+# Code for parsing audio files list ^
+chosen_file=0
+for file in files:
+    if file.startswith(str(chosen_file)):
+        pygame.mixer.music.load(f"./audio/{file}")
+        pygame.mixer.music.play()
+        print("Playing audio...")
+        
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+        print("Playback finished.")
+            
+        break
+        
+# Code for playing audio files ^
+print("Press ENTER to bind a key...")
