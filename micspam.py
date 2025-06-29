@@ -69,7 +69,7 @@ def load_audio_files(folder=None):
     if not folder or not os.path.isdir(folder):
         return
     current_folder = folder
-    current_files = [f for f in os.listdir(folder) if f.lower().endswith(('.wav', '.mp3', '.ogg', '.m4a', '.opus'))]
+    current_files = [f for f in os.listdir(folder) if f.lower().endswith(('.wav', '.mp3', '.ogg',))]
     audio_list.delete(0, tk.END)
     for f in current_files:
         audio_list.insert(tk.END, f)
