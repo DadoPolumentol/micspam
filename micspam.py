@@ -4,16 +4,22 @@ from typing import Dict
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT']='1'
 import pygame
 pygame.init()
 pygame.mixer.init()
 
+is_initializing=True
+is_paused=False
+current_channel = pygame.mixer.Channel(0)
+currently_playing_sound = None
 current_folder = None
 current_files = []
 bindings: Dict[str, str] = {}
 file_volumes: Dict[str, float] = {}
 
 def play_file(file):
+    global currently_playing_sound, is_paused
     if not current_folder:
         print("No folder loaded.")
         return
@@ -27,7 +33,9 @@ def play_file(file):
         master_volume = master_volume_slider.get() / 100.0
         final_volume = per_file_volume if per_file_volume is not None else master_volume
         sound.set_volume(final_volume)
-        sound.play()
+        current_channel.play(sound)
+        currently_playing_sound = sound
+        is_paused = False
         print(f"Playing {file} at volume {final_volume}")
         print(f"Master volume: {master_volume}, Per-file override: {per_file_volume}")
     except Exception as e:
@@ -35,6 +43,7 @@ def play_file(file):
 
 
 def on_audio_select(event):
+    # pylint: disable=unused-argument
     sel = audio_list.curselection()
     if not sel:
         return
@@ -43,7 +52,9 @@ def on_audio_select(event):
     print(f"Selected {file} with volume {volume}")
     file_volume_slider.set(int(volume * 100))
 
-def save_bindings():
+def save_bindings(verbose: bool = False):
+    if is_initializing:
+        return
     try:
         volumes_to_save = {f: v for f, v in file_volumes.items() if v != 1.0}
         data = {
@@ -53,7 +64,8 @@ def save_bindings():
         }
         with open("keybinds.json", "w", encoding="utf-8") as f:
             json.dump(data, f)
-        print("Bindings and volumes saved.")
+        if verbose:
+            print("Bindings and volumes saved.")
     except Exception as e:
         print(f"Error saving bindings: {e}")
         
@@ -66,11 +78,12 @@ def load_bindings():
             bindings.update(data.get("bindings", {}))
             file_volumes.clear()
             volumes_raw = data.get("volumes", {})
-            for f, v in volumes_raw.items():
-                try:
-                    file_volumes[f] = float(v)
-                except:
-                    pass
+            if isinstance(volumes_raw, dict):
+                for f, v in volumes_raw.items():
+                    try:
+                        file_volumes[f] = float(v)
+                    except:
+                        pass
             master_vol = data.get("master_volume", 1.0)
             master_volume_slider.set(int(master_vol * 100))
             for combo, file in bindings.items():
@@ -90,7 +103,7 @@ def clear_bindings():
         keyboard.remove_hotkey(combo)
     bindings.clear()
     update_bindings_view()
-    save_bindings()
+    save_bindings(verbose=True)
     print("All bindings cleared.")
 
 
@@ -153,7 +166,7 @@ def start_binding():
     save_bindings()
     print(f"Bound {combo} → {file}")
 
-
+# pylint: disable=protected-access
 def on_key_press(event):
     pressed_keys = keyboard._pressed_events.keys()
     combo = set()
@@ -174,10 +187,40 @@ def on_key_press(event):
         update_bindings_view()
     window.unbind("<Key>")
 
+def handle_play():
+    sel = audio_list.curselection()
+    if sel:
+        file = audio_list.get(sel[0])
+        play_file(file)
+    else:
+        print("No file selected to play.")
+        
+def handle_pause():
+    global is_paused
+    if current_channel.get_busy() and not is_paused:
+        current_channel.pause()
+        is_paused = True
+        print("Playback paused.")
+    elif is_paused:
+        current_channel.unpause()
+        is_paused = False
+        print("Playback unpaused.")
+    else:
+        print("Nothing is playing to pause/unpause.")
+        
+def handle_stop():
+    global is_paused
+    current_channel.stop()
+    is_paused = False
+    print("Playback stopped.")
+
+
+
 
 # GUI
 window = tk.Tk()
 window.title("Micspam Software")
+window.geometry("600x640")
 
 frame = tk.Frame(window)
 frame.pack()
@@ -207,6 +250,18 @@ load_button.pack(pady=5)
 bindings_view = tk.Text(window, height=5, width=50)
 bindings_view.pack()
 
+playback_frame = tk.Frame(window)
+playback_frame.pack(pady=10)
+
+play_button = tk.Button(playback_frame, text="⏵", width=10, command=handle_play, font=("Helvetica", 14, "bold"))
+pause_button = tk.Button(playback_frame, text="⏸", width=10, command=handle_pause, font=("Helvetica", 14, "bold"))
+stop_button = tk.Button(playback_frame, text="⏹", width=10, command=handle_stop, font=("Helvetica", 14, "bold"))
+
+play_button.grid(row=0, column=0, padx=5)
+pause_button.grid(row=0, column=1, padx=5)
+stop_button.grid(row=0, column=2, padx=5)
+
+
 def clamp_volume(val_str):
     try:
         val = int(val_str)
@@ -225,7 +280,7 @@ master_volume_label = tk.Label(master_volume_frame, text="Master Volume")
 master_volume_label.grid(row=0, column=0, sticky="w", padx=(0,10))
 master_volume_var = tk.StringVar(value="100")
 
-def on_master_entry_change(*args):
+def on_master_entry_change(*_):
     val_str = master_volume_var.get()
     clamped = clamp_volume(val_str)
     if clamped != val_str:
@@ -243,7 +298,7 @@ master_volume_slider = tk.Scale(master_volume_frame, from_=0, to=100, resolution
 def on_master_volume_change(val):
     val_int = int(float(val))
     master_volume_var.set(str(val_int))
-    print(f"Master volume set to {val_int}%")
+    # print(f"Master volume set to {val_int}%")
     save_bindings()
 
 master_volume_slider.config(command=on_master_volume_change)
@@ -263,7 +318,7 @@ file_volume_label = tk.Label(file_volume_frame, text="Selected File Volume")
 file_volume_label.grid(row=0, column=0, sticky="w", padx=(0,10))
 file_volume_var = tk.StringVar(value="100")
 
-def on_file_entry_change(*args):
+def on_file_entry_change(*_):
     val_str = file_volume_var.get()
     clamped = clamp_volume(val_str)
     if clamped != val_str:
@@ -281,7 +336,7 @@ def on_file_volume_change(val):
     val_int = int(float(val))
     file_volume_var.set(str(val_int))
     set_file_volume(val)
-    print(f"File volume set to {val_int}%")
+    # print(f"File volume set to {val_int}%")
     save_bindings()
 
 file_volume_slider.config(command=on_file_volume_change)
@@ -304,4 +359,5 @@ def update_bindings_view():
 
 load_audio_files('./audio')
 load_bindings()
+is_initializing = False
 window.mainloop()
