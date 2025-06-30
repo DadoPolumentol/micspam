@@ -6,8 +6,6 @@ In order to hear go to Control Panel -> Hardware and Sound -> Sound -> Recording
 
 
 # To-do:
-- Master volume control
-- Singular volume control
 - Play button
 - Stop button
 - Pause button

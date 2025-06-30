@@ -11,45 +11,78 @@ pygame.mixer.init()
 current_folder = None
 current_files = []
 bindings: Dict[str, str] = {}
+file_volumes: Dict[str, float] = {}
 
 def play_file(file):
-    
     if not current_folder:
         print("No folder loaded.")
         return
     path = os.path.join(current_folder, file)
     if not os.path.isfile(path):
         print(f"File does not exist: {path}")
-    return
+        return
     try:
-        pygame.mixer.music.load(path)
-        pygame.mixer.music.play()
-        print(f"Playing {file}")
+        sound = pygame.mixer.Sound(path)
+        per_file_volume = file_volumes.get(file)
+        master_volume = master_volume_slider.get() / 100.0
+        final_volume = per_file_volume if per_file_volume is not None else master_volume
+        sound.set_volume(final_volume)
+        sound.play()
+        print(f"Playing {file} at volume {final_volume}")
+        print(f"Master volume: {master_volume}, Per-file override: {per_file_volume}")
     except Exception as e:
         print(f"Failed to play {file}: {e}")
 
 
+def on_audio_select(event):
+    sel = audio_list.curselection()
+    if not sel:
+        return
+    file = audio_list.get(sel[0])
+    volume = file_volumes.get(file, master_volume_slider.get() / 100.0)
+    print(f"Selected {file} with volume {volume}")
+    file_volume_slider.set(int(volume * 100))
+
 def save_bindings():
     try:
+        volumes_to_save = {f: v for f, v in file_volumes.items() if v != 1.0}
+        data = {
+            "bindings": bindings,
+            "volumes": volumes_to_save,
+            "master_volume": master_volume_slider.get() / 100.0
+        }
         with open("keybinds.json", "w", encoding="utf-8") as f:
-            json.dump(bindings, f)
-        print("Bindings saved.")
+            json.dump(data, f)
+        print("Bindings and volumes saved.")
     except Exception as e:
         print(f"Error saving bindings: {e}")
+        
 
 def load_bindings():
     try:
         with open("keybinds.json", "r", encoding="utf-8") as f:
             data = json.load(f)
-            for combo, file in data.items():
-                bindings[combo] = file
+            bindings.clear()
+            bindings.update(data.get("bindings", {}))
+            file_volumes.clear()
+            volumes_raw = data.get("volumes", {})
+            for f, v in volumes_raw.items():
+                try:
+                    file_volumes[f] = float(v)
+                except:
+                    pass
+            master_vol = data.get("master_volume", 1.0)
+            master_volume_slider.set(int(master_vol * 100))
+            for combo, file in bindings.items():
                 keyboard.add_hotkey(combo, lambda f=file: play_file(f), suppress=False)
-        print("Bindings loaded from keybinds.json")
-        update_bindings_view()
+            update_bindings_view()
+        print("Bindings and volumes loaded from keybinds.json")
     except FileNotFoundError:
         print("No saved bindings found.")
     except Exception as e:
         print(f"Error loading bindings: {e}")
+    print("Loaded file volumes:", file_volumes)
+    print("Master volume:", master_volume_slider.get())
 
 
 def clear_bindings():
@@ -59,6 +92,20 @@ def clear_bindings():
     update_bindings_view()
     save_bindings()
     print("All bindings cleared.")
+
+
+    
+def set_file_volume(val):
+    volume = float(val) / 100.0
+    sel = audio_list.curselection()
+    if sel:
+        file = audio_list.get(sel[0])
+        if volume == 1.0:
+            if file in file_volumes:
+                del file_volumes[file]
+        else:
+            file_volumes[file] = volume
+        print(f"Set volume for {file} to {int(volume * 100)}%")
 
 
 # Load audio files from folder
@@ -141,6 +188,8 @@ scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 audio_list = tk.Listbox(frame, width=50, height=15, yscrollcommand=scrollbar.set)
 audio_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+audio_list.bind("<<ListboxSelect>>", on_audio_select)
+
 scrollbar.config(command=audio_list.yview)
 
 bind_button = tk.Button(window, text="Bind Selected File to Key(s)", command=start_binding)
@@ -157,6 +206,95 @@ load_button.pack(pady=5)
 
 bindings_view = tk.Text(window, height=5, width=50)
 bindings_view.pack()
+
+def clamp_volume(val_str):
+    try:
+        val = int(val_str)
+        if val < 0:
+            return "0"
+        elif val > 100:
+            return "100"
+        else:
+            return str(val)
+    except:
+        return ""
+
+master_volume_frame = tk.Frame(window)
+master_volume_frame.pack(pady=5, fill=tk.X)
+master_volume_label = tk.Label(master_volume_frame, text="Master Volume")
+master_volume_label.grid(row=0, column=0, sticky="w", padx=(0,10))
+master_volume_var = tk.StringVar(value="100")
+
+def on_master_entry_change(*args):
+    val_str = master_volume_var.get()
+    clamped = clamp_volume(val_str)
+    if clamped != val_str:
+        master_volume_var.set(clamped)
+        return
+    if clamped != "":
+        master_volume_slider.set(int(clamped))
+        save_bindings()
+
+master_volume_var.trace_add('write', on_master_entry_change)
+
+master_volume_slider = tk.Scale(master_volume_frame, from_=0, to=100, resolution=1,
+                               orient=tk.HORIZONTAL, length=200)
+
+def on_master_volume_change(val):
+    val_int = int(float(val))
+    master_volume_var.set(str(val_int))
+    print(f"Master volume set to {val_int}%")
+    save_bindings()
+
+master_volume_slider.config(command=on_master_volume_change)
+master_volume_slider.set(100)
+master_volume_slider.grid(row=0, column=1, sticky="ew")
+master_volume_entry = tk.Entry(master_volume_frame, width=5, textvariable=master_volume_var, justify='right')
+master_volume_entry.grid(row=0, column=2, padx=(10,0))
+master_volume_percent_label = tk.Label(master_volume_frame, text="%")
+master_volume_percent_label.grid(row=0, column=3, sticky="w", padx=(5,0))
+
+master_volume_frame.grid_columnconfigure(1, weight=1)
+
+
+file_volume_frame = tk.Frame(window)
+file_volume_frame.pack(pady=5, fill=tk.X)
+file_volume_label = tk.Label(file_volume_frame, text="Selected File Volume")
+file_volume_label.grid(row=0, column=0, sticky="w", padx=(0,10))
+file_volume_var = tk.StringVar(value="100")
+
+def on_file_entry_change(*args):
+    val_str = file_volume_var.get()
+    clamped = clamp_volume(val_str)
+    if clamped != val_str:
+        file_volume_var.set(clamped)
+        return
+    if clamped != "":
+        file_volume_slider.set(int(clamped))
+        save_bindings()
+
+file_volume_var.trace_add('write', on_file_entry_change)
+file_volume_slider = tk.Scale(file_volume_frame, from_=0, to=100, resolution=1,
+                             orient=tk.HORIZONTAL, length=200)
+
+def on_file_volume_change(val):
+    val_int = int(float(val))
+    file_volume_var.set(str(val_int))
+    set_file_volume(val)
+    print(f"File volume set to {val_int}%")
+    save_bindings()
+
+file_volume_slider.config(command=on_file_volume_change)
+file_volume_slider.set(100)
+file_volume_slider.grid(row=0, column=1, sticky="ew")
+file_volume_entry = tk.Entry(file_volume_frame, width=5, textvariable=file_volume_var, justify='right')
+file_volume_entry.grid(row=0, column=2, padx=(10,0))
+file_volume_percent_label = tk.Label(file_volume_frame, text="%")
+file_volume_percent_label.grid(row=0, column=3, sticky="w", padx=(5,0))
+file_volume_frame.grid_columnconfigure(1, weight=1)
+
+
+
 
 def update_bindings_view():
     bindings_view.delete("1.0", tk.END)
