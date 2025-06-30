@@ -129,6 +129,7 @@ def load_audio_files(folder=None):
     if not folder or not os.path.isdir(folder):
         return
     current_folder = folder
+    current_folder_label.config(text=f"Current folder: {current_folder}")
     current_files = [f for f in os.listdir(folder) if f.lower().endswith(('.wav', '.mp3', '.ogg'))]
     audio_list.delete(0, tk.END)
     for f in current_files:
@@ -234,6 +235,9 @@ audio_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 audio_list.bind("<<ListboxSelect>>", on_audio_select)
 
 scrollbar.config(command=audio_list.yview)
+
+current_folder_label = tk.Label(window, text="Current folder: None", anchor="w")
+current_folder_label.pack(pady=(5,0), fill=tk.X)
 
 bind_button = tk.Button(window, text="Bind Selected File to Key(s)", command=start_binding)
 bind_button.pack(pady=5)
