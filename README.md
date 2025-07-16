@@ -17,3 +17,4 @@ Supported files are .wav, .mp3 and .ogg
 - Menu to select recently used folders
 - Search box
 - Loop toggle
+- Audio files mass rename
