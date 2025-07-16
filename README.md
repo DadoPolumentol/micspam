@@ -19,3 +19,4 @@ Supported files are .wav, .mp3 and .ogg
 - Search box
 - Loop toggle
 - Audio files mass rename
+- Play youtube by link
