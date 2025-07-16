@@ -1,6 +1,7 @@
 # Installation
 
 - Download python from [python.org](https://www.python.org/downloads/), check 'Add Python to PATH' when installing
+- Install pip
 - Open Terminal and run `pip install pygame && pip install keyboard`
 - Then run `py micspam.py`
 
