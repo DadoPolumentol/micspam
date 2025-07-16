@@ -8,7 +8,7 @@
 
 # Setup
 
-Install VB cable, set as default I/O devices;
+Install VB cable, set as default I/O devices;  
 In order to hear go to Control Panel -> Hardware and Sound -> Sound -> Recording -> CABLE Output -> Properties -> Listen -> Listen to this device
 
 Supported files are .wav, .mp3 and .ogg
