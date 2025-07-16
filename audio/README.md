@@ -1,0 +1,2 @@
+# This is where the sound files are stored. 
+# In order for them to be registered in the program, they must be .wav, .mp3 or .ogg and also must start with a number to be indexed (until auto index feature is added)
